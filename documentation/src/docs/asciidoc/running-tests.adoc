@@ -632,6 +632,11 @@ Option                                        Description
                                                 option can be repeated.
 -r, --select-resource <String>                Select a classpath resource for test
                                                 discovery. This option can be repeated.
+--scan-module-path, --scan-modulepath         EXPERIMENTAL: Scan all modules on the
+                                                module-path for test discovery.
+-o, --select-module <String: module name>     EXPERIMENTAL: Select single module for
+                                                test discovery. This option can be
+                                                repeated.
 -n, --include-classname <String>              Provide a regular expression to include
                                                 only classes whose fully qualified names
                                                 match. To avoid loading classes

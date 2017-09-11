@@ -24,6 +24,7 @@ on GitHub.
 ===== New Features and Improvements
 
 * ❓
+* Add Java 9 module path scanning and selection support
 
 
 [[release-notes-5.1.0-junit-jupiter]]
@@ -40,6 +41,7 @@ on GitHub.
 ===== New Features and Improvements
 
 * ❓
+* Add Java 9 module path scanning and selection support
 
 
 [[release-notes-5.1.0-junit-vintage]]
@@ -56,3 +58,4 @@ on GitHub.
 ===== New Features and Improvements
 
 * ❓
+* Add Java 9 module path scanning and selection support

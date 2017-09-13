@@ -1,0 +1,69 @@
+plugins {
+	id 'org.gradle.java.experimental-jigsaw' version '0.1.1'
+}
+
+repositories {
+	jcenter()
+	maven { url 'https://plugins.gradle.org/m2/' }
+	maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+	maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+	compile 'org.apiguardian:apiguardian-api:1.0.0'
+	compile 'org.opentest4j:opentest4j:1.0.0'
+
+	// TODO Replace jitpack coordinates with local project references after merging "module" branch
+	compile 'com.github.junit-team.junit5:junit-platform-commons:module-SNAPSHOT'
+	compile 'com.github.junit-team.junit5:junit-platform-console:module-SNAPSHOT'
+	compile 'com.github.junit-team.junit5:junit-platform-engine:module-SNAPSHOT'
+	compile 'com.github.junit-team.junit5:junit-platform-launcher:module-SNAPSHOT'
+
+	compile 'com.github.junit-team.junit5:junit-jupiter-api:module-SNAPSHOT'
+	compile 'com.github.junit-team.junit5:junit-jupiter-engine:module-SNAPSHOT'
+}
+
+javaModule.name = project.name
+
+// enable on your own risk: issues with Java 9, Gradle and others...
+checkstyleMain.enabled = false
+checkstyleTest.enabled = false
+degraph.enabled = false
+javadoc.enabled = false
+
+compileJava {
+	sourceCompatibility = JavaVersion.VERSION_1_9
+	targetCompatibility = JavaVersion.VERSION_1_9
+}
+
+compileTestJava {
+	sourceCompatibility = JavaVersion.VERSION_1_9
+	targetCompatibility = JavaVersion.VERSION_1_9
+}
+
+task generateBuildDepsDirectory(type: Copy) {
+	into "build/deps"
+	from configurations.compile
+}
+
+task compileIntegrationTests(type: Exec, dependsOn: generateBuildDepsDirectory) {
+	executable = 'javac'
+	args = [
+			'-d', 'build/jpms',
+			'--module-path', 'build/deps',
+			'--module-source-path', 'src/platform-tests',
+			'--module', 'jpms.integration'
+	]
+}
+
+task runIntegrationTests(type: Exec, dependsOn: [compileIntegrationTests, jar]) {
+	executable = 'java'
+	args = [
+			'--module-path', 'build/deps' + File.pathSeparator + 'build/classes/java/main' + File.pathSeparator + 'build/jpms',
+			'--add-modules', 'ALL-MODULE-PATH',
+			'--module', 'org.junit.platform.console',
+			'--scan-module-path'
+	]
+}
+
+check.dependsOn(runIntegrationTests)

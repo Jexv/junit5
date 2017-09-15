@@ -57,7 +57,7 @@ class ModuleReferenceScanner {
 	}
 
 	/** Convert resource name to binary class name. */
-	private String className(String resourceName) {
+	String className(String resourceName) {
 		assert resourceName.endsWith(".class") : "resource name doesn't end with '.class': " + resourceName;
 		resourceName = resourceName.substring(0, resourceName.length() - 6); // 6 = ".class".length()
 		resourceName = resourceName.replace('/', '.');

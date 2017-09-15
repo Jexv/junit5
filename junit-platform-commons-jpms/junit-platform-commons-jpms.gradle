@@ -1,11 +1,5 @@
-plugins {
-	id 'org.gradle.java.experimental-jigsaw' version '0.1.1'
-}
-
 repositories {
-	jcenter()
 	maven { url 'https://plugins.gradle.org/m2/' }
-	maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
 	maven { url 'https://jitpack.io' }
 }
 
@@ -18,52 +12,102 @@ dependencies {
 	compile 'com.github.junit-team.junit5:junit-platform-console:module-SNAPSHOT'
 	compile 'com.github.junit-team.junit5:junit-platform-engine:module-SNAPSHOT'
 	compile 'com.github.junit-team.junit5:junit-platform-launcher:module-SNAPSHOT'
-
 	compile 'com.github.junit-team.junit5:junit-jupiter-api:module-SNAPSHOT'
 	compile 'com.github.junit-team.junit5:junit-jupiter-engine:module-SNAPSHOT'
 }
-
-javaModule.name = project.name
 
 // enable on your own risk: issues with Java 9, Gradle and others...
 checkstyleMain.enabled = false
 checkstyleTest.enabled = false
 degraph.enabled = false
 javadoc.enabled = false
+test.enabled = false // replaced by `testSameModule` and `testIntegration`
 
-compileJava {
-	sourceCompatibility = JavaVersion.VERSION_1_9
-	targetCompatibility = JavaVersion.VERSION_1_9
-}
+//
+// define global properties
+//
+ext.moduleName = 'org.junit.platform.commons.jpms'
+ext.externalDependencies = "${buildDir}${File.separator}ext-deps"
+ext.integrationModules = "${buildDir}${File.separator}classes${File.separator}java${File.separator}integration"
+ext.mainClasses = sourceSets.main.java.outputDir.toString()
+ext.testClasses = sourceSets.test.java.outputDir.toString()
 
-compileTestJava {
-	sourceCompatibility = JavaVersion.VERSION_1_9
-	targetCompatibility = JavaVersion.VERSION_1_9
-}
-
-task generateBuildDepsDirectory(type: Copy) {
-	into "build/deps"
+//
+// copy compile- and runtime dependencies to a single directory
+//
+task generateExternalDependenciesDirectory(type: Copy) {
+	into "$externalDependencies"
 	from configurations.compile
 }
 
-task compileIntegrationTests(type: Exec, dependsOn: generateBuildDepsDirectory) {
+//
+// compile 'org.junit.platform.commons.jpms' main sources
+//
+
+compileJava() {
+	sourceCompatibility = JavaVersion.VERSION_1_9
+	targetCompatibility = JavaVersion.VERSION_1_9
+	options.compilerArgs = ['--module-path', "$externalDependencies"]
+	classpath = files()
+}
+
+compileJava.dependsOn generateExternalDependenciesDirectory
+
+//
+// compile 'org.junit.platform.commons.jpms' test sources
+//
+compileTestJava {
+	sourceCompatibility = JavaVersion.VERSION_1_9
+	targetCompatibility = JavaVersion.VERSION_1_9
+	options.compilerArgs = [
+		'--module-path', String.join(File.pathSeparator, "$externalDependencies", "$mainClasses"),
+		'--add-modules', "org.junit.jupiter.api",
+		'--add-modules', "org.opentest4j",
+		'--add-reads', "$moduleName=org.junit.jupiter.api",
+		'--add-reads', "$moduleName=org.opentest4j",
+		'--patch-module', "$moduleName=" + files(sourceSets.test.java.srcDirs).asPath,
+	]
+	classpath = files()
+}
+
+//
+// run tests for 'org.junit.platform.commons.jpms'
+//
+task testModule(type: Exec, dependsOn: compileTestJava) {
+	executable = 'java'
+	args = [
+			'--module-path', String.join(File.pathSeparator, "$externalDependencies", "$mainClasses", "$testClasses"),
+			'--add-modules', 'ALL-MODULE-PATH',
+			'--add-opens', "$moduleName/$moduleName=org.junit.platform.commons",
+			'--patch-module', "$moduleName=$testClasses",
+			'--module', 'org.junit.platform.console',
+			'--scan-module-path'
+	]
+}
+
+check.dependsOn testModule
+
+//
+// compile and run integration tests using module 'jpms.integration' in 'test-integration'
+//
+task compileIntegration(type: Exec, dependsOn: compileJava) {
 	executable = 'javac'
 	args = [
-			'-d', 'build/jpms',
-			'--module-path', 'build/deps',
-			'--module-source-path', 'src/platform-tests',
+			'-d', "$integrationModules",
+			'--module-path', "$externalDependencies",
+			'--module-source-path', 'src/test-integration',
 			'--module', 'jpms.integration'
 	]
 }
 
-task runIntegrationTests(type: Exec, dependsOn: [compileIntegrationTests, jar]) {
+task testIntegration(type: Exec, dependsOn: compileIntegration) {
 	executable = 'java'
 	args = [
-			'--module-path', 'build/deps' + File.pathSeparator + 'build/classes/java/main' + File.pathSeparator + 'build/jpms',
+			'--module-path', String.join(File.pathSeparator, "$externalDependencies", "$mainClasses", "$integrationModules"),
 			'--add-modules', 'ALL-MODULE-PATH',
 			'--module', 'org.junit.platform.console',
 			'--scan-module-path'
 	]
 }
 
-check.dependsOn(runIntegrationTests)
+check.dependsOn testIntegration

@@ -8,8 +8,8 @@ repositories {
 dependencies {
 	implementation 'com.github.junit-team.junit5:junit-platform-commons:module-SNAPSHOT'
 	testImplementation 'com.github.junit-team.junit5:junit-jupiter-api:module-SNAPSHOT'
-	testRuntime 'com.github.junit-team.junit5:junit-platform-console:module-SNAPSHOT'
-	testRuntime 'com.github.junit-team.junit5:junit-jupiter-engine:module-SNAPSHOT'
+	testRuntimeOnly 'com.github.junit-team.junit5:junit-platform-console:module-SNAPSHOT'
+	testRuntimeOnly 'com.github.junit-team.junit5:junit-jupiter-engine:module-SNAPSHOT'
 }
 
 // enable on your own risk: issues with Java 9, Gradle and others...
@@ -33,8 +33,8 @@ ext.testClasses = sourceSets.test.java.outputDir.toString()
 //
 task generateDependenciesDirectory(type: Copy) {
 	into deps
-	from configurations.compile
-	from configurations.testRuntime
+	from configurations.compileClasspath
+	from configurations.testRuntimeClasspath
 }
 
 //

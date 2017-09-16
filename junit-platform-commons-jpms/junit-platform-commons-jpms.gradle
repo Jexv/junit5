@@ -1,19 +1,15 @@
 repositories {
-	maven { url 'https://plugins.gradle.org/m2/' }
 	maven { url 'https://jitpack.io' }
 }
 
+//
+// TODO Replace jitpack coordinates with local project references after merging "module" branch
+//
 dependencies {
-	compile 'org.apiguardian:apiguardian-api:1.0.0'
-	compile 'org.opentest4j:opentest4j:1.0.0'
-
-	// TODO Replace jitpack coordinates with local project references after merging "module" branch
-	compile 'com.github.junit-team.junit5:junit-platform-commons:module-SNAPSHOT'
-	compile 'com.github.junit-team.junit5:junit-platform-console:module-SNAPSHOT'
-	compile 'com.github.junit-team.junit5:junit-platform-engine:module-SNAPSHOT'
-	compile 'com.github.junit-team.junit5:junit-platform-launcher:module-SNAPSHOT'
-	compile 'com.github.junit-team.junit5:junit-jupiter-api:module-SNAPSHOT'
-	compile 'com.github.junit-team.junit5:junit-jupiter-engine:module-SNAPSHOT'
+	implementation 'com.github.junit-team.junit5:junit-platform-commons:module-SNAPSHOT'
+	testImplementation 'com.github.junit-team.junit5:junit-jupiter-api:module-SNAPSHOT'
+	testRuntime 'com.github.junit-team.junit5:junit-platform-console:module-SNAPSHOT'
+	testRuntime 'com.github.junit-team.junit5:junit-jupiter-engine:module-SNAPSHOT'
 }
 
 // enable on your own risk: issues with Java 9, Gradle and others...
@@ -21,37 +17,37 @@ checkstyleMain.enabled = false
 checkstyleTest.enabled = false
 degraph.enabled = false
 javadoc.enabled = false
-test.enabled = false // replaced by `testSameModule` and `testIntegration`
+test.enabled = false // replaced by tasks `testModule` and `testIntegration` below
 
 //
 // define global properties
 //
 ext.moduleName = 'org.junit.platform.commons.jpms'
-ext.externalDependencies = "${buildDir}${File.separator}ext-deps"
-ext.integrationModules = "${buildDir}${File.separator}classes${File.separator}java${File.separator}integration"
+ext.deps = buildDir.toPath().resolve('deps').toString()
+ext.integrationModules = buildDir.toPath().resolve('classes/java/test-integration').toString()
 ext.mainClasses = sourceSets.main.java.outputDir.toString()
 ext.testClasses = sourceSets.test.java.outputDir.toString()
 
 //
 // copy compile- and runtime dependencies to a single directory
 //
-task generateExternalDependenciesDirectory(type: Copy) {
-	into "$externalDependencies"
+task generateDependenciesDirectory(type: Copy) {
+	into deps
 	from configurations.compile
+	from configurations.testRuntime
 }
 
 //
 // compile 'org.junit.platform.commons.jpms' main sources
 //
-
 compileJava() {
 	sourceCompatibility = JavaVersion.VERSION_1_9
 	targetCompatibility = JavaVersion.VERSION_1_9
-	options.compilerArgs = ['--module-path', "$externalDependencies"]
+	options.compilerArgs = ['--module-path', deps]
 	classpath = files()
 }
 
-compileJava.dependsOn generateExternalDependenciesDirectory
+compileJava.dependsOn generateDependenciesDirectory
 
 //
 // compile 'org.junit.platform.commons.jpms' test sources
@@ -60,7 +56,7 @@ compileTestJava {
 	sourceCompatibility = JavaVersion.VERSION_1_9
 	targetCompatibility = JavaVersion.VERSION_1_9
 	options.compilerArgs = [
-		'--module-path', String.join(File.pathSeparator, "$externalDependencies", "$mainClasses"),
+		'--module-path', files(deps, mainClasses).asPath,
 		'--add-modules', "org.junit.jupiter.api",
 		'--add-modules', "org.opentest4j",
 		'--add-reads', "$moduleName=org.junit.jupiter.api",
@@ -76,7 +72,7 @@ compileTestJava {
 task testModule(type: Exec, dependsOn: compileTestJava) {
 	executable = 'java'
 	args = [
-			'--module-path', String.join(File.pathSeparator, "$externalDependencies", "$mainClasses", "$testClasses"),
+			'--module-path', files(deps, mainClasses, testClasses).asPath,
 			'--add-modules', 'ALL-MODULE-PATH',
 			'--add-opens', "$moduleName/$moduleName=org.junit.platform.commons",
 			'--patch-module', "$moduleName=$testClasses",
@@ -93,8 +89,8 @@ check.dependsOn testModule
 task compileIntegration(type: Exec, dependsOn: compileJava) {
 	executable = 'javac'
 	args = [
-			'-d', "$integrationModules",
-			'--module-path', "$externalDependencies",
+			'-d', integrationModules,
+			'--module-path', deps,
 			'--module-source-path', 'src/test-integration',
 			'--module', 'jpms.integration'
 	]
@@ -103,7 +99,7 @@ task compileIntegration(type: Exec, dependsOn: compileJava) {
 task testIntegration(type: Exec, dependsOn: compileIntegration) {
 	executable = 'java'
 	args = [
-			'--module-path', String.join(File.pathSeparator, "$externalDependencies", "$mainClasses", "$integrationModules"),
+			'--module-path', files(deps, mainClasses, integrationModules).asPath,
 			'--add-modules', 'ALL-MODULE-PATH',
 			'--module', 'org.junit.platform.console',
 			'--scan-module-path'
